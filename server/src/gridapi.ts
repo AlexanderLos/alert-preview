@@ -3,6 +3,9 @@ export class gridAPI {
 
     private static readonly baseURL = "https://api.gridstatus.io/v1/datasets/ercot_spp_real_time_15_min/query"
 
+    // Saved results for each location and date range, kept until the server restarts
+    private readonly cache = new Map<string, PriceReading[]>()
+
     async fetchPrices(query: PriceQuery): Promise<PriceResponse> {
         try{
             const url = new URL(gridAPI.baseURL)
@@ -28,6 +31,12 @@ export class gridAPI {
     }
 
     async fetchAllPrices(query: PriceQuery): Promise<PriceReading[]> {
+        const key = `${query.location}|${query.start}|${query.end}`
+        const cached = this.cache.get(key)
+        if(cached){
+            return cached
+        }
+
         const readings: PriceReading[] = []
         let cursor: string | undefined = undefined
         let hasNextPage = true
@@ -39,6 +48,7 @@ export class gridAPI {
             cursor = response.meta.cursor ?? undefined
         }
 
+        this.cache.set(key, readings)
         return readings
     }
 }
