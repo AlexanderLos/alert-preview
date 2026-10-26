@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
     branches: [main]
-  # Runs on main too, so Vercel can wait for these checks before releasing to production
+  # Pushes to main run the checks, then deploy to production
   push:
     branches: [main]
 
@@ -68,3 +68,24 @@ jobs:
       - name: Test
         working-directory: server
         run: npm test
+
+  deploy:
+    name: Deploy
+    needs: [checks, server-checks]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Deploy
+        run: npx vercel@65.3.1 deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
