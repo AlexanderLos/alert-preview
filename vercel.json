@@ -1,0 +1,14 @@
+{
+  "services": {
+    "web": { "root": "web" },
+    "server": {
+      "root": "server",
+      "entrypoint": "src/app.ts",
+      "buildCommand": "tsc --noEmit"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "server" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ]
+}

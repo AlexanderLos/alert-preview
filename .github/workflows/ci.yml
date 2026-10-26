@@ -3,13 +3,16 @@ name: ci
 on:
   pull_request:
     branches: [main]
-  
+  # Runs on main too, so Vercel can wait for these checks before releasing to production
+  push:
+    branches: [main]
+
 permissions:
   contents: read
 
 jobs:
   checks:
-    name: Checks
+    name: Web checks
     runs-on: ubuntu-latest
 
     steps:
@@ -39,3 +42,29 @@ jobs:
         working-directory: web
         run: npm run build
 
+  server-checks:
+    name: Server checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install
+        working-directory: server
+        run: npm ci
+
+      - name: Type check
+        working-directory: server
+        run: npx tsc --noEmit
+
+      - name: Test
+        working-directory: server
+        run: npm test
