@@ -1,20 +1,8 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
-import { previewAlerts } from "./previewAlerts.js";
-import type { PriceReading } from "./gridapi.js";
+import { test, expect } from "vitest";
+import { previewAlerts } from "./previewAlerts.ts";
 
-// Only the UTC start time and the price matter to previewAlerts
-function reading(utc: string, spp: number): PriceReading {
-  return {
-    interval_start_local: "",
-    interval_start_utc: utc,
-    interval_end_local: "",
-    interval_end_utc: "",
-    location: "",
-    location_type: "",
-    market: "",
-    spp,
-  };
+function reading(utc: string, spp: number) {
+  return { interval_start_utc: utc, spp };
 }
 
 test("returns no alerts when every price is below the threshold", () => {
@@ -23,13 +11,13 @@ test("returns no alerts when every price is below the threshold", () => {
     reading("2026-10-01T05:15:00+00:00", 99.99),
   ];
 
-  assert.deepEqual(previewAlerts(readings, 100, 0), []);
+  expect(previewAlerts(readings, 100, 0)).toEqual([]);
 });
 
 test("alerts when the price exactly equals the threshold", () => {
   const readings = [reading("2026-10-01T05:00:00+00:00", 100)];
 
-  assert.deepEqual(previewAlerts(readings, 100, 0), readings);
+  expect(previewAlerts(readings, 100, 0)).toEqual(readings);
 });
 
 test("alerts on every qualifying reading when the cooldown is 0", () => {
@@ -39,7 +27,7 @@ test("alerts on every qualifying reading when the cooldown is 0", () => {
     reading("2026-10-01T05:30:00+00:00", 150),
   ];
 
-  assert.deepEqual(previewAlerts(readings, 100, 0), readings);
+  expect(previewAlerts(readings, 100, 0)).toEqual(readings);
 });
 
 test("suppresses alerts inside the cooldown window", () => {
@@ -50,7 +38,7 @@ test("suppresses alerts inside the cooldown window", () => {
     reading("2026-10-01T05:45:00+00:00", 150),
   ];
 
-  assert.deepEqual(previewAlerts(readings, 100, 60), [readings[0]]);
+  expect(previewAlerts(readings, 100, 60)).toEqual([readings[0]]);
 });
 
 test("alerts again exactly when the cooldown ends", () => {
@@ -60,8 +48,20 @@ test("alerts again exactly when the cooldown ends", () => {
     reading("2026-10-01T06:00:00+00:00", 150),
   ];
 
-  assert.deepEqual(previewAlerts(readings, 100, 60), [
-    readings[0],
-    readings[2],
-  ]);
+  expect(previewAlerts(readings, 100, 60)).toEqual([readings[0], readings[2]]);
+});
+
+test("alerts once an hour across the fall-back DST day", () => {
+  // CT midnight on Nov 2, 2025, a 25-hour day. 1:00–1:45 AM happens twice in
+  // local time, so the timeout must run on real time.
+  const midnight = Date.parse("2025-11-02T05:00:00Z");
+  const readings = Array.from({ length: 100 }, (_, i) =>
+    reading(new Date(midnight + i * 15 * 60 * 1000).toISOString(), 150),
+  );
+
+  expect(previewAlerts(readings, 100, 60)).toHaveLength(25);
+});
+
+test("returns no alerts when there are no readings", () => {
+  expect(previewAlerts([], 100, 0)).toEqual([]);
 });

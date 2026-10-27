@@ -1,4 +1,4 @@
-import type { PriceReading } from "./gridapi.js";
+import type { PriceReading } from "./api.ts";
 
 export function previewAlerts(
   readings: PriceReading[],
