@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { gridAPI } from "./gridapi.js";
+import { gridAPI, GridStatusError } from "./gridapi.js";
 
 const LOCATIONS = ["HB_HOUSTON", "HB_NORTH", "HB_SOUTH", "HB_WEST"];
 const MAX_DAYS = 31;
@@ -16,14 +16,41 @@ const grid = new gridAPI(apiKey);
 
 // Fetch
 app.get("/api/prices", async (c) => {
+  const startedAt = Date.now();
   const { location, start, end } = c.req.query();
+  const label = `prices ${location || "-"} ${start || "-"}..${end || "-"}`;
+
   const error = validate(location, start, end);
   if (error) {
+    console.warn(`${label} 400 ${error}`);
     return c.json({ error }, 400);
   }
 
-  const prices = await grid.fetchAllPrices({ location, start, end });
-  return c.json(prices);
+  try {
+    const { readings, pages } = await grid.fetchAllPrices({
+      location,
+      start,
+      end,
+    });
+    const cache = pages === 0 ? "hit" : "miss";
+    console.log(
+      `${label} cache=${cache} pages=${pages} ${Date.now() - startedAt}ms`,
+    );
+    return c.json(readings);
+  } catch (err) {
+    if (err instanceof GridStatusError) {
+      console.error(
+        `${label} failed ${err.status} (${err.reason}) ${Date.now() - startedAt}ms`,
+      );
+      return c.json({ error: err.message }, err.status);
+    }
+    throw err;
+  }
+});
+
+app.onError((err, c) => {
+  console.error(err);
+  return c.json({ error: "Something went wrong." }, 500);
 });
 
 // Returns what's wrong with the query, or undefined if it's valid

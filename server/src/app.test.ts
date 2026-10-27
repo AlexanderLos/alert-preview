@@ -15,6 +15,10 @@ function getPrices(query: string) {
 
 beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async () => page());
+  // The handler logs one line per request
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -87,4 +91,35 @@ test("returns the readings as a JSON array", async () => {
 
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual([reading]);
+});
+
+test("turns a Grid Status 429 into a 503 without the key", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    Response.json(
+      { detail: "Rate limit exceeded. Try again in 60 seconds." },
+      { status: 429 },
+    ),
+  );
+
+  const response = await getPrices(
+    "location=HB_HOUSTON&start=2025-04-01&end=2025-04-01",
+  );
+  const body = await response.text();
+
+  expect(response.status).toBe(503);
+  expect(JSON.parse(body)).toEqual({
+    error: "Grid Status limit reached. Try again later.",
+  });
+  expect(body).not.toContain("test-key");
+});
+
+test("hides an unexpected failure behind a 500", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("not json"));
+
+  const response = await getPrices(
+    "location=HB_HOUSTON&start=2025-05-01&end=2025-05-01",
+  );
+
+  expect(response.status).toBe(500);
+  expect(await response.json()).toEqual({ error: "Something went wrong." });
 });
