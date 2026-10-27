@@ -61,6 +61,14 @@ jobs:
         working-directory: server
         run: npm ci
 
+      - name: Format check
+        working-directory: server
+        run: npm run format:check
+
+      - name: Lint
+        working-directory: server
+        run: npm run lint -- --max-warnings=0
+
       - name: Type check
         working-directory: server
         run: npx tsc --noEmit
