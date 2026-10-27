@@ -3,13 +3,16 @@ name: ci
 on:
   pull_request:
     branches: [main]
-  
+  # Pushes to main run the checks, then deploy to production
+  push:
+    branches: [main]
+
 permissions:
   contents: read
 
 jobs:
   checks:
-    name: Checks
+    name: Web checks
     runs-on: ubuntu-latest
 
     steps:
@@ -39,3 +42,50 @@ jobs:
         working-directory: web
         run: npm run build
 
+  server-checks:
+    name: Server checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install
+        working-directory: server
+        run: npm ci
+
+      - name: Type check
+        working-directory: server
+        run: npx tsc --noEmit
+
+      - name: Test
+        working-directory: server
+        run: npm test
+
+  deploy:
+    name: Deploy
+    needs: [checks, server-checks]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Deploy
+        run: npx vercel@65.3.1 deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

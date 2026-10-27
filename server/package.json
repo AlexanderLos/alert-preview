@@ -2,9 +2,7 @@
   "name": "server",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "dev": "tsx watch --env-file=.env src/index.ts",
     "test": "tsx --test src/*.test.ts"
   },
   "dependencies": {
@@ -14,6 +12,6 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "tsx": "^4.23.0",
-    "typescript": "^7.0.2"
+    "typescript": "6.0.3"
   }
 }
