@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis";
 import type { PriceQuery, PriceReading } from "./gridapi.js";
+import { todayCT, yesterdayCT } from "./dates.js";
 
 // Where gridAPI keeps finished ranges. get resolves to null on a miss, and
 // neither method rejects, because a cache failure only costs speed.
@@ -75,15 +76,19 @@ export function memoryCache(): PriceCache {
   };
 }
 
-// Placeholder for your key: the same key the in-memory cache used
+// One entry per hub and date range. Bump v1 to ignore entries saved in an older shape.
 export function cacheKey(query: PriceQuery): string {
-  return `${query.location}|${query.start}|${query.end}`;
+  return `spp:v1:${query.location}|${query.start}|${query.end}`;
 }
 
-// Placeholder for your rule (ranges that include today expire, past ranges
-// stay). Until then nothing expires, and unlike the old Map, Redis keeps a
-// range across restarts and deploys, including one that ends today.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// Today, and yesterday just after midnight can still be missing prices,
+// so those ranges expire in 15 minutes. Older ranges never change.
+
 export function expirySeconds(query: PriceQuery): number | undefined {
+  const today = todayCT();
+  const yesterday = yesterdayCT();
+  if (query.end === today || query.end === yesterday) {
+    return 15 * 60; //Keeping it to 15 minutes since today is still filling in.
+  }
   return undefined;
 }
