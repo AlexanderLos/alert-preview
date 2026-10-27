@@ -1,4 +1,5 @@
 import { test, expect, vi, afterEach } from "vitest";
+import { memoryCache } from "./cache.js";
 import { gridAPI, GridStatusError } from "./gridapi.js";
 
 const query = {
@@ -35,7 +36,7 @@ test("follows the cursor across pages and keeps the readings in order", async ()
     .mockResolvedValueOnce(page([{ spp: 1 }], "cursor-1"))
     .mockResolvedValueOnce(page([{ spp: 2 }], "cursor-2"))
     .mockResolvedValueOnce(page([{ spp: 3 }]));
-  const grid = new gridAPI("test-key");
+  const grid = new gridAPI("test-key", memoryCache());
 
   const result = await grid.fetchAllPrices(query);
 
@@ -52,7 +53,7 @@ test("the same query twice only calls fetch once", async () => {
   const fetchMock = vi
     .spyOn(globalThis, "fetch")
     .mockImplementation(async () => page());
-  const grid = new gridAPI("test-key");
+  const grid = new gridAPI("test-key", memoryCache());
 
   await grid.fetchAllPrices(query);
   const second = await grid.fetchAllPrices(query);
@@ -69,7 +70,7 @@ test.each([
   const fetchMock = vi
     .spyOn(globalThis, "fetch")
     .mockImplementation(async () => page());
-  const grid = new gridAPI("test-key");
+  const grid = new gridAPI("test-key", memoryCache());
 
   await grid.fetchAllPrices(query);
   await grid.fetchAllPrices({ ...query, ...change });
@@ -83,7 +84,7 @@ test("a failed page isn't cached", async () => {
     .mockResolvedValueOnce(failure(500, "Internal server error"))
     .mockResolvedValueOnce(page([{ spp: 1 }], "cursor-1"))
     .mockResolvedValueOnce(page([{ spp: 2 }]));
-  const grid = new gridAPI("test-key");
+  const grid = new gridAPI("test-key", memoryCache());
 
   await expect(grid.fetchAllPrices(query)).rejects.toThrow(GridStatusError);
   await expect(grid.fetchAllPrices(query)).resolves.toEqual({
@@ -94,7 +95,7 @@ test("a failed page isn't cached", async () => {
 
 test("asks Grid Status for the hub through the day after the end date", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async () => page());
-  const grid = new gridAPI("test-key");
+  const grid = new gridAPI("test-key", memoryCache());
 
   await grid.fetchAllPrices(query);
 
@@ -116,7 +117,7 @@ test("logs the network error behind a failed fetch", async () => {
       cause: new Error("connect ECONNREFUSED 127.0.0.1:443"),
     }),
   );
-  const grid = new gridAPI("test-key");
+  const grid = new gridAPI("test-key", memoryCache());
 
   const error: GridStatusError = await grid
     .fetchAllPrices(query)
@@ -188,7 +189,7 @@ test.each([
   ],
 ])("maps %s to %i", async (_upstream, status, message, reply) => {
   vi.spyOn(globalThis, "fetch").mockImplementation(reply);
-  const grid = new gridAPI("test-key");
+  const grid = new gridAPI("test-key", memoryCache());
 
   const error: GridStatusError = await grid
     .fetchAllPrices(query)

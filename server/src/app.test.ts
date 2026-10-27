@@ -1,7 +1,9 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
-// app.ts throws on import without an API key
+// app.ts throws on import without an API key. A blank KV_REST_API_URL keeps
+// the cache in memory even if the Upstash vars are set in your shell.
 vi.stubEnv("GRIDSTATUS_API_KEY", "test-key");
+vi.stubEnv("KV_REST_API_URL", "");
 const { default: app } = await import("./app.js");
 
 // One page of Grid Status results with no next page

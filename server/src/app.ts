@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { createCache } from "./cache.js";
 import { gridAPI, GridStatusError } from "./gridapi.js";
 
 const LOCATIONS = ["HB_HOUSTON", "HB_NORTH", "HB_SOUTH", "HB_WEST"];
@@ -12,7 +13,7 @@ if (!apiKey) {
 }
 
 const app = new Hono();
-const grid = new gridAPI(apiKey);
+const grid = new gridAPI(apiKey, createCache());
 
 // Fetch
 app.get("/api/prices", async (c) => {
