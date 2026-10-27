@@ -86,7 +86,7 @@ const LEGEND: { label: string; swatch: CSSProperties }[] = [
   },
 ];
 
-// x values are CT wall-clock times stored as UTC (see x), so read them as UTC
+// x values are CT clock times stored as UTC (see ctClockTime)
 const dayLabel = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
   month: "short",
@@ -153,12 +153,12 @@ function Chart({ readings, notified, suppressed, value }: Props) {
 
 // CT wall-clock time read as UTC (with useUTC), so day ticks land on CT
 // midnight for any viewer
-function x(reading: PriceReading): number {
+function ctClockTime(reading: PriceReading): number {
   return Date.parse(reading.interval_start_local.slice(0, 19) + "Z");
 }
 
 function point(reading: PriceReading): [number, number] {
-  return [x(reading), reading.spp];
+  return [ctClockTime(reading), reading.spp];
 }
 
 function chartOption(
@@ -176,9 +176,11 @@ function chartOption(
     grid: { left: 62, right: 12, top: 14, bottom: 24 },
     xAxis: {
       type: "time",
-      min: x(readings[0]),
-      max: x(readings[readings.length - 1]),
+      min: ctClockTime(readings[0]),
+      max: ctClockTime(readings[readings.length - 1]),
       minInterval: DAY_MS,
+      // Longer steps restart at each new month and leave uneven gaps
+      maxInterval: 2 * DAY_MS,
       splitNumber: 8,
       axisLine: { lineStyle: { color: COLORS.axis } },
       axisTick: { show: false },

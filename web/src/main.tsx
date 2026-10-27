@@ -1,4 +1,10 @@
-import { createTheme, Input, MantineProvider } from "@mantine/core";
+import {
+  createTheme,
+  Input,
+  MantineProvider,
+  Slider,
+  type CSSVariablesResolver,
+} from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -33,22 +39,52 @@ const theme = createTheme({
   components: {
     InputWrapper: Input.Wrapper.extend({
       styles: {
-        label: { fontSize: "var(--mantine-font-size-xs)", fontWeight: 400 },
+        label: {
+          fontSize: "var(--mantine-font-size-xs)",
+          fontWeight: 400,
+          color: "var(--mantine-color-dimmed)",
+        },
       },
+    }),
+    // The mockup's thin slider: 4px track, 16px thumb with a 2px ring
+    Slider: Slider.extend({
+      defaultProps: { size: "xs", thumbSize: 16 },
+      styles: { thumb: { borderWidth: 2 } },
     }),
   },
 });
 
-// Past prices never change, and a failed load has its own Try again
+// Darker muted and error text, as in the mockup, for WCAG AA contrast
+const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: {
+    "--mantine-color-dimmed": "#6b6d73",
+    "--mantine-color-error": "var(--mantine-color-red-9)",
+  },
+  dark: {},
+});
+
+// Past prices never change, so every loaded range stays cached. Failed loads,
+// offline ones included, go straight to the error state and its Try again.
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: false, staleTime: Infinity, refetchOnWindowFocus: false },
+    queries: {
+      retry: false,
+      staleTime: Infinity,
+      gcTime: Infinity,
+      refetchOnWindowFocus: false,
+      networkMode: "always",
+    },
   },
 });
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <MantineProvider theme={theme} forceColorScheme="light">
+    <MantineProvider
+      theme={theme}
+      cssVariablesResolver={cssVariablesResolver}
+      forceColorScheme="light"
+    >
       <QueryClientProvider client={queryClient}>
         <App />
       </QueryClientProvider>

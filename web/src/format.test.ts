@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { formatTime, formatUsd } from "./format.ts";
+import { formatTime, formatUsd, formatUsdShort } from "./format.ts";
 
 test("shows times in Central Time on both sides of daylight saving", () => {
   // CDT is UTC-5
@@ -10,4 +10,9 @@ test("shows times in Central Time on both sides of daylight saving", () => {
 
 test("shows dollars with a thousands separator and cents", () => {
   expect(formatUsd(1118.42)).toBe("$1,118.42");
+});
+
+test("short dollars drop zero cents", () => {
+  expect(formatUsdShort(100)).toBe("$100");
+  expect(formatUsdShort(100.5)).toBe("$100.5");
 });

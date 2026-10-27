@@ -34,14 +34,15 @@ export default function App() {
   const ranges = presets(today);
 
   const [location, setLocation] = useState("HB_HOUSTON");
-  // NumberInput gives a string while the field is empty or mid-edit ("", "100.")
+  // NumberInput passes a string while empty or mid-edit ("", ".", "100."),
+  // which the math reads as a number, or as 0 when it isn't one
   const [valueInput, setValueInput] = useState<number | string>(100);
   const [timeoutInput, setTimeoutInput] = useState<number | string>(30);
   const [start, setStart] = useState(ranges[0].start);
   const [end, setEnd] = useState(ranges[0].end);
 
-  const value = Number(valueInput);
-  const timeout = Number(timeoutInput);
+  const value = Number(valueInput) || 0;
+  const timeout = Number(timeoutInput) || 0;
   const dateError = rangeError(start, end);
 
   const { data, isFetching, isError, refetch } = useQuery({
@@ -57,9 +58,8 @@ export default function App() {
   const above = readings.filter((r) => r.spp >= value);
   const suppressed = above.filter((r) => !isNotified.has(r));
 
-  const failed = isError && !isFetching;
   // An invalid range leaves the previous results on screen, dimmed
-  const showResults = !failed && (!dateError || data !== undefined);
+  const showResults = !isError && (!dateError || data !== undefined);
 
   return (
     <Container
@@ -162,6 +162,7 @@ export default function App() {
               label="Date range"
               labelElement="div"
               error={dateError}
+              errorProps={{ role: "alert" }}
             >
               <Group gap={6} wrap="nowrap">
                 <DatePickerInput
@@ -194,7 +195,8 @@ export default function App() {
                 return (
                   <Button
                     key={range.label}
-                    size="xs"
+                    size="compact-xs"
+                    radius={6}
                     fw={400}
                     variant={active ? "outline" : "default"}
                     aria-pressed={active}
@@ -220,8 +222,14 @@ export default function App() {
           <Text fz={15}>
             {`Alert when ${location} SPP is greater than or equal to ${formatUsdShort(value)}/MWh · Notification Timeout ${timeout} min`}
           </Text>
-          {failed && (
-            <Alert color="red" icon={warningIcon}>
+          {isError && (
+            <Alert
+              color="red"
+              bg="red.0"
+              bd="1px solid var(--mantine-color-red-3)"
+              py="sm"
+              icon={warningIcon}
+            >
               Couldn't load prices from Grid Status.{" "}
               <Anchor
                 component="button"
@@ -266,6 +274,8 @@ export default function App() {
                 loading={isFetching}
               />
               <AlertHistory
+                // A new location or range shows the first 10 rows again
+                key={`${location} ${start} ${end}`}
                 readings={readings}
                 notified={notified}
                 loading={isFetching}
@@ -302,7 +312,7 @@ function Stat({
         {label}
       </Text>
       {loading ? (
-        <Skeleton h={26} w={44} />
+        <Skeleton h={{ base: 24, sm: 31 }} w={44} />
       ) : (
         <Text
           fz={{ base: 22, sm: 28 }}

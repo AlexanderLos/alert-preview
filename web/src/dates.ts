@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 
 // Same limit as the server
 const MAX_DAYS = 31;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 // en-CA formats dates as YYYY-MM-DD
 export function todayCT(): string {
@@ -37,7 +38,8 @@ export function rangeError(start: string, end: string): string | undefined {
   if (end < start) {
     return "End date is before start date.";
   }
-  if (dayjs(end).diff(start, "day") + 1 > MAX_DAYS) {
+  // Date.parse reads YYYY-MM-DD as UTC midnight, so no time zone shifts the count
+  if ((Date.parse(end) - Date.parse(start)) / DAY_MS + 1 > MAX_DAYS) {
     return `Pick ${MAX_DAYS} days or fewer.`;
   }
 }

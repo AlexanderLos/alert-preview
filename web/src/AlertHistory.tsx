@@ -93,6 +93,9 @@ export function AlertHistory({ readings, notified, loading }: Props) {
                 <Button
                   variant="subtle"
                   size="compact-sm"
+                  c="blurple.7"
+                  fz={13}
+                  fw={500}
                   onClick={() => setShowAll(!showAll)}
                 >
                   {showAll

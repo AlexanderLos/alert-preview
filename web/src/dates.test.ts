@@ -1,5 +1,12 @@
-import { expect, test } from "vitest";
-import { presets, rangeError } from "./dates.ts";
+import { expect, test, vi } from "vitest";
+import { presets, rangeError, todayCT } from "./dates.ts";
+
+test("today is the Central Time date", () => {
+  // 11:30 PM CDT on Oct 27 is already Oct 28 in UTC
+  vi.useFakeTimers({ now: new Date("2026-10-28T04:30:00Z") });
+  expect(todayCT()).toBe("2026-10-27");
+  vi.useRealTimers();
+});
 
 test("allows a single day", () => {
   expect(rangeError("2026-10-05", "2026-10-05")).toBeUndefined();
