@@ -48,3 +48,19 @@ test("a different date range calls fetch again", async () => {
 
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
+
+test("asks Grid Status for the day after the end date", async () => {
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async () => onePage());
+  const grid = new gridAPI("test-key");
+
+  await grid.fetchAllPrices({
+    location: "HB_HOUSTON",
+    start: "2026-10-01",
+    end: "2026-10-07",
+  });
+
+  const url = new URL(String(fetchMock.mock.calls[0][0]));
+  expect(url.searchParams.get("end_time")).toBe("2026-10-08");
+});

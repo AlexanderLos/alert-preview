@@ -12,7 +12,8 @@ export class gridAPI {
       const url = new URL(gridAPI.baseURL);
       url.searchParams.set("filter_value", query.location);
       url.searchParams.set("start_time", query.start);
-      url.searchParams.set("end_time", query.end);
+      // Grid Status's end_time is exclusive, so ask for the day after the last day
+      url.searchParams.set("end_time", dayAfter(query.end));
       url.searchParams.set("timezone", "market");
       url.searchParams.set("filter_column", "location");
       if (query.cursor) {
@@ -54,6 +55,13 @@ export class gridAPI {
     this.cache.set(key, readings);
     return readings;
   }
+}
+
+// YYYY-MM-DD parses as UTC midnight, so adding a day can't hit daylight saving
+function dayAfter(date: string): string {
+  const day = new Date(date);
+  day.setUTCDate(day.getUTCDate() + 1);
+  return day.toISOString().slice(0, 10);
 }
 
 //Price Types
