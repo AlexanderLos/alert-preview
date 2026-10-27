@@ -2,7 +2,7 @@ import { test, expect } from "vitest";
 import { previewAlerts } from "./previewAlerts.ts";
 
 function reading(utc: string, spp: number) {
-  return { interval_start_utc: utc, spp };
+  return { interval_start_utc: utc, interval_start_local: "", spp };
 }
 
 test("returns no alerts when every price is below the threshold", () => {
