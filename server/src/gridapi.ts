@@ -33,10 +33,13 @@ export class gridAPI {
           "timeout after 10s",
         );
       }
+      // Node keeps the network error (DNS, refused, TLS) in cause. A key with a
+      // control character makes fetch throw with the key in the message.
+      const cause = error instanceof Error && error.cause ? error.cause : error;
       throw new GridStatusError(
         502,
         "Couldn't reach Grid Status.",
-        String(error),
+        String(cause).replaceAll(this.apiKey, "<key>"),
       );
     }
 
@@ -92,7 +95,8 @@ async function responseError(response: Response): Promise<GridStatusError> {
     typeof body?.detail === "string" ? body.detail : response.statusText;
   const reason = `Grid Status ${response.status}: ${detail}`;
 
-  if (response.status === 401 || response.status === 403) {
+  // Grid Status answers a bad key with 400 "Invalid API key."
+  if ([400, 401, 403].includes(response.status)) {
     return new GridStatusError(
       502,
       "Grid Status rejected the server's API key or plan.",

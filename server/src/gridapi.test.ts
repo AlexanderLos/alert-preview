@@ -61,14 +61,18 @@ test("the same query twice only calls fetch once", async () => {
   expect(second.pages).toBe(0);
 });
 
-test("a different date range calls fetch again", async () => {
+test.each([
+  ["hub", { location: "HB_NORTH" }],
+  ["start", { start: "2026-10-02" }],
+  ["end", { end: "2026-10-06" }],
+])("a different %s calls fetch again", async (_field, change) => {
   const fetchMock = vi
     .spyOn(globalThis, "fetch")
     .mockImplementation(async () => page());
   const grid = new gridAPI("test-key");
 
   await grid.fetchAllPrices(query);
-  await grid.fetchAllPrices({ ...query, start: "2026-10-02" });
+  await grid.fetchAllPrices({ ...query, ...change });
 
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
@@ -88,21 +92,51 @@ test("a failed page isn't cached", async () => {
   });
 });
 
-test("asks Grid Status for the day after the end date", async () => {
+test("asks Grid Status for the hub through the day after the end date", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async () => page());
   const grid = new gridAPI("test-key");
 
   await grid.fetchAllPrices(query);
 
-  expect(sentParam(0, "end_time")).toBe("2026-10-08");
+  const [url, init] = vi.mocked(fetch).mock.calls[0];
+  expect(Object.fromEntries(new URL(String(url)).searchParams)).toEqual({
+    filter_column: "location",
+    filter_value: "HB_HOUSTON",
+    start_time: "2026-10-01",
+    end_time: "2026-10-08",
+    timezone: "market",
+  });
+  expect(init?.headers).toEqual({ "x-api-key": "test-key" });
+  expect(init?.signal).toBeInstanceOf(AbortSignal);
+});
+
+test("logs the network error behind a failed fetch", async () => {
+  vi.spyOn(globalThis, "fetch").mockRejectedValue(
+    new TypeError("fetch failed", {
+      cause: new Error("connect ECONNREFUSED 127.0.0.1:443"),
+    }),
+  );
+  const grid = new gridAPI("test-key");
+
+  const error: GridStatusError = await grid
+    .fetchAllPrices(query)
+    .catch((err) => err);
+
+  expect(error.reason).toBe("Error: connect ECONNREFUSED 127.0.0.1:443");
 });
 
 test.each([
   [
+    "400",
+    502,
+    "Grid Status rejected the server's API key or plan.",
+    async () => failure(400, "Invalid API key."),
+  ],
+  [
     "401",
     502,
     "Grid Status rejected the server's API key or plan.",
-    async () => failure(401, "Invalid API key"),
+    async () => failure(401, "Missing API Key."),
   ],
   [
     "403",
@@ -142,6 +176,15 @@ test.each([
     502,
     "Couldn't reach Grid Status.",
     () => Promise.reject(new TypeError("fetch failed")),
+  ],
+  [
+    "a key fetch can't send",
+    502,
+    "Couldn't reach Grid Status.",
+    () =>
+      Promise.reject(
+        new TypeError('Headers.append: "test-key" is an invalid header value.'),
+      ),
   ],
 ])("maps %s to %i", async (_upstream, status, message, reply) => {
   vi.spyOn(globalThis, "fetch").mockImplementation(reply);

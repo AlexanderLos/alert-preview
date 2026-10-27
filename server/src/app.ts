@@ -18,7 +18,7 @@ const grid = new gridAPI(apiKey);
 app.get("/api/prices", async (c) => {
   const startedAt = Date.now();
   const { location, start, end } = c.req.query();
-  const label = `prices ${location || "-"} ${start || "-"}..${end || "-"}`;
+  const label = `prices ${logValue(location)} ${logValue(start)}..${logValue(end)}`;
 
   const error = validate(location, start, end);
   if (error) {
@@ -52,6 +52,11 @@ app.onError((err, c) => {
   console.error(err);
   return c.json({ error: "Something went wrong." }, 500);
 });
+
+// Query values go into the log raw, so a newline could fake a second line
+function logValue(value?: string): string {
+  return value?.replace(/[\r\n]/g, " ") || "-";
+}
 
 // Returns what's wrong with the query, or undefined if it's valid
 function validate(

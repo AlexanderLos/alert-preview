@@ -53,7 +53,7 @@ test("alerts again exactly when the cooldown ends", () => {
 
 test("alerts once an hour across the fall-back DST day", () => {
   // CT midnight on Nov 2, 2025, a 25-hour day. 1:00–1:45 AM happens twice in
-  // local time, so the timeout must run on real time.
+  // local time, so the cooldown must run on real time.
   const midnight = Date.parse("2025-11-02T05:00:00Z");
   const readings = Array.from({ length: 100 }, (_, i) =>
     reading(new Date(midnight + i * 15 * 60 * 1000).toISOString(), 150),
