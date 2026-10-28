@@ -6,8 +6,6 @@ See how often an ERCOT price alert would have fired on past data. Pick a hub, a 
 
 Live: https://alert-preview.vercel.app
 
-The design is in [docs/design/alert-preview-mockup.html](docs/design/alert-preview-mockup.html). Open it in a browser.
-
 ## Run it locally
 
 You need Node 20.19 or later and a Grid Status API key.
