@@ -1,10 +1,19 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
-// app.ts throws on import without an API key. A blank KV_REST_API_URL keeps
-// the cache in memory even if the Upstash vars are set in your shell.
-vi.stubEnv("GRIDSTATUS_API_KEY", "test-key");
-vi.stubEnv("KV_REST_API_URL", "");
-const { default: app } = await import("./app.js");
+// app.ts reads its env vars on import, so each set needs a fresh import. It
+// throws without an API key, and a blank KV_REST_API_URL keeps Redis off even
+// if the Upstash vars are set in your shell.
+async function importApp(env: Record<string, string> = {}) {
+  vi.resetModules();
+  const vars = { GRIDSTATUS_API_KEY: "test-key", KV_REST_API_URL: "", ...env };
+  for (const [name, value] of Object.entries(vars)) {
+    vi.stubEnv(name, value);
+  }
+  const { default: app } = await import("./app.js");
+  return app;
+}
+
+const app = await importApp();
 
 // One page of Grid Status results with no next page
 function page(data: object[] = []): Response {
@@ -26,6 +35,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 test.each([
@@ -164,6 +174,24 @@ test("turns a Grid Status 429 into a 503 without the key", async () => {
   expect(console.error).toHaveBeenCalledWith(
     expect.stringMatching(
       /^prices HB_HOUSTON 2025-04-01\.\.2025-04-01 failed 503 \(Grid Status 429: Rate limit exceeded\. Try again in 60 seconds\.\) \d+ms$/,
+    ),
+  );
+});
+
+test("trims the API key, so the log hides the key fetch quotes", async () => {
+  const paddedApp = await importApp({ GRIDSTATUS_API_KEY: "test\nkey\n" });
+  // Real fetch strips the newline at the end, then rejects the one inside
+  // and quotes the key, before sending anything
+  vi.mocked(fetch).mockRestore();
+
+  const response = await paddedApp.request(
+    "/api/prices?location=HB_HOUSTON&start=2025-07-01&end=2025-07-01",
+  );
+
+  expect(response.status).toBe(502);
+  expect(console.error).toHaveBeenCalledWith(
+    expect.stringMatching(
+      /^prices HB_HOUSTON 2025-07-01\.\.2025-07-01 failed 502 \(TypeError: Headers\.append: "<key>" is an invalid header value\.\) \d+ms$/,
     ),
   );
 });

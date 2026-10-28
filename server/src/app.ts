@@ -7,8 +7,10 @@ const LOCATIONS = ["HB_HOUSTON", "HB_NORTH", "HB_SOUTH", "HB_WEST"];
 const MAX_DAYS = 31;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// API key comes from server/.env locally and from project env vars on Vercel
-const apiKey = process.env.GRIDSTATUS_API_KEY;
+// API key comes from server/.env locally and from project env vars on Vercel.
+// fetch strips pasted whitespace from the key it sends, so trim it the same
+// way, or a key fetch quotes in an error won't match the one the logs redact.
+const apiKey = process.env.GRIDSTATUS_API_KEY?.trim();
 if (!apiKey) {
   throw new Error("GRIDSTATUS_API_KEY is not set");
 }
