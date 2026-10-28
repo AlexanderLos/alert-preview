@@ -6,8 +6,7 @@ export type Upstash = {
   logError(failure: string, error: unknown): void;
 };
 
-// The Upstash integration on Vercel sets these env vars. Without Redis, prices
-// are cached in memory and nothing is rate limited.
+// The Upstash integration on Vercel sets these env vars
 export function createUpstash(): Upstash | undefined {
   // A pasted newline would break the URL and slip past the token redaction
   const url = process.env.KV_REST_API_URL?.trim();

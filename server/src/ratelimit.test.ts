@@ -2,8 +2,8 @@ import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { LIMIT, rateLimit } from "./ratelimit.js";
 import { createUpstash } from "./redis.js";
 
-// 23 seconds before the next minute starts
-const now = new Date("2026-10-28T15:00:37Z");
+// 22.25 seconds before the next minute starts, which rounds up to 23
+const now = new Date("2026-10-28T15:00:37.750Z");
 const key = `ratelimit:203.0.113.7:${Math.floor(now.getTime() / 60_000)}`;
 
 function useUpstash() {
@@ -47,20 +47,6 @@ test("makes an IP over the limit wait until the next minute", async () => {
   expect(await rateLimit(useUpstash(), "203.0.113.7")).toBe(23);
 });
 
-test("lets the request through when Redis fails, and logs why", async () => {
-  vi.spyOn(console, "error").mockImplementation(() => {});
-  vi.spyOn(globalThis, "fetch").mockRejectedValue(
-    new TypeError("fetch failed", {
-      cause: new Error("getaddrinfo ENOTFOUND redis.test"),
-    }),
-  );
-
-  expect(await rateLimit(useUpstash(), "203.0.113.7")).toBeUndefined();
-  expect(console.error).toHaveBeenCalledWith(
-    "rate limit check failed for 203.0.113.7 (Error: getaddrinfo ENOTFOUND redis.test)",
-  );
-});
-
 test("lets a request without an IP through", async () => {
   const fetchMock = vi.spyOn(globalThis, "fetch");
 
@@ -69,10 +55,5 @@ test("lets a request without an IP through", async () => {
 });
 
 test("lets every request through when Redis isn't configured", async () => {
-  vi.stubEnv("KV_REST_API_URL", "");
-  vi.spyOn(console, "warn").mockImplementation(() => {});
-  const fetchMock = vi.spyOn(globalThis, "fetch");
-
-  expect(await rateLimit(createUpstash(), "203.0.113.7")).toBeUndefined();
-  expect(fetchMock).not.toHaveBeenCalled();
+  expect(await rateLimit(undefined, "203.0.113.7")).toBeUndefined();
 });

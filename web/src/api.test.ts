@@ -9,12 +9,12 @@ test.each([
   [
     "a 429",
     "Too many requests. Try again in a minute.",
-    async () => Response.json({ error: "Too many requests." }, { status: 429 }),
+    async () => new Response(null, { status: 429 }),
   ],
   [
     "a 503",
     "Couldn't load prices from Grid Status.",
-    async () => Response.json({ error: "Grid Status." }, { status: 503 }),
+    async () => new Response(null, { status: 503 }),
   ],
   [
     "a network failure",

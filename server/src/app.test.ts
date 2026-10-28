@@ -228,6 +228,9 @@ test("serves prices when Redis is down", async () => {
   expect(console.error).toHaveBeenCalledWith(
     "rate limit check failed for 203.0.113.7 (TypeError: fetch failed)",
   );
+  expect(console.error).toHaveBeenCalledWith(
+    "cache read failed for spp:v1:HB_HOUSTON|2025-09-01|2025-09-01 (TypeError: fetch failed)",
+  );
 });
 
 test("trims the API key, so the log hides the key fetch quotes", async () => {

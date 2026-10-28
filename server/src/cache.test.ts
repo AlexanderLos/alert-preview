@@ -138,7 +138,9 @@ test("gives up on a hung Redis after 2s, timing each request on its own", async 
     .mockResolvedValueOnce(Response.json([{ result: "OK" }]));
   const cache = createCache(createUpstash());
 
+  const startedAt = Date.now();
   expect(await cache.get("range-key")).toBeNull();
+  expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1_900);
   await cache.set("range-key", [reading]);
 
   expect(console.error).toHaveBeenCalledWith(
