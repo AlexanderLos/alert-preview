@@ -21,7 +21,7 @@ import { DatePickerInput } from "@mantine/dates";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { AlertHistory } from "./AlertHistory.tsx";
-import { fetchPrices } from "./api.ts";
+import { fetchPrices, loadErrorMessage } from "./api.ts";
 import { presets, rangeError, todayCT } from "./dates.ts";
 import { formatUsdShort } from "./format.ts";
 import { PriceChart } from "./PriceChart.tsx";
@@ -45,7 +45,7 @@ export default function App() {
   const timeout = Number(timeoutInput) || 0;
   const dateError = rangeError(start, end);
 
-  const { data, isFetching, isError, refetch } = useQuery({
+  const { data, error, isFetching, isError, refetch } = useQuery({
     queryKey: ["prices", location, start, end],
     queryFn: () => fetchPrices(location, start, end),
     enabled: !dateError,
@@ -230,7 +230,7 @@ export default function App() {
               py="sm"
               icon={warningIcon}
             >
-              Couldn't load prices from Grid Status.{" "}
+              {loadErrorMessage(error)}{" "}
               <Anchor
                 component="button"
                 inherit

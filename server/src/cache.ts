@@ -1,6 +1,6 @@
-import { Redis } from "@upstash/redis";
 import type { PriceQuery, PriceReading } from "./gridapi.js";
 import { todayCT, yesterdayCT } from "./dates.js";
+import type { Upstash } from "./redis.js";
 
 // Where gridAPI keeps finished ranges. get resolves to null on a miss, and
 // neither method rejects, because a cache failure only costs speed.
@@ -13,46 +13,16 @@ export type PriceCache = {
   ): Promise<void>;
 };
 
-// The Upstash integration on Vercel sets these env vars
-export function createCache(): PriceCache {
-  // A pasted newline would break the URL and slip past the token redaction
-  const url = process.env.KV_REST_API_URL?.trim();
-  const token = process.env.KV_REST_API_TOKEN?.trim();
-  if (!url || !token) {
+export function createCache(upstash: Upstash | undefined): PriceCache {
+  if (!upstash) {
     return memoryCache();
   }
-
-  let redis: Redis;
-  try {
-    redis = new Redis({
-      url,
-      token,
-      // Give up fast: one attempt and 2s per request to Upstash. The signal is
-      // a function so each request gets its own timer; a single signal would
-      // expire 2s after startup and fail every request after that.
-      retry: { retries: 0 },
-      signal: () => AbortSignal.timeout(2_000),
-    });
-  } catch {
-    // Upstash quotes the URL it rejects, and a redis:// URL holds a password
-    console.error(
-      "KV_REST_API_URL isn't an Upstash REST URL, so prices are cached in memory",
-    );
-    return memoryCache();
-  }
-
-  // Upstash puts the whole command in its message, which for a write is every
-  // reading, and fetch puts a token it can't send in its own
-  const logError = (action: "read" | "write", key: string, error: unknown) => {
-    const cause = error instanceof Error && error.cause ? error.cause : error;
-    const message = String(cause).replaceAll(token, "<token>").slice(0, 200);
-    console.error(`cache ${action} failed for ${key} (${message})`);
-  };
+  const { redis, logError } = upstash;
 
   return {
     get: (key) =>
       redis.get<PriceReading[]>(key).catch((error) => {
-        logError("read", key, error);
+        logError(`cache read failed for ${key}`, error);
         return null;
       }),
     set: async (key, readings, expirySeconds) => {
@@ -60,7 +30,7 @@ export function createCache(): PriceCache {
         expirySeconds === undefined ? undefined : { ex: expirySeconds };
       await redis
         .set(key, readings, options)
-        .catch((error) => logError("write", key, error));
+        .catch((error) => logError(`cache write failed for ${key}`, error));
     },
   };
 }

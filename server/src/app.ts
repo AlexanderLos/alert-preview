@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { createCache } from "./cache.js";
 import { gridAPI, GridStatusError } from "./gridapi.js";
 import { todayCT } from "./dates.js";
+import { LIMIT, rateLimit } from "./ratelimit.js";
+import { createUpstash } from "./redis.js";
 
 const LOCATIONS = ["HB_HOUSTON", "HB_NORTH", "HB_SOUTH", "HB_WEST"];
 const MAX_DAYS = 31;
@@ -16,7 +18,8 @@ if (!apiKey) {
 }
 
 const app = new Hono();
-const grid = new gridAPI(apiKey, createCache());
+const upstash = createUpstash();
+const grid = new gridAPI(apiKey, createCache(upstash));
 
 // Fetch
 app.get("/api/prices", async (c) => {
@@ -28,6 +31,16 @@ app.get("/api/prices", async (c) => {
   if (error) {
     console.warn(`${label} 400 ${error}`);
     return c.json({ error }, 400);
+  }
+
+  // Vercel sets x-real-ip to the client's address
+  const ip = c.req.header("x-real-ip");
+  const retryAfter = await rateLimit(upstash, ip);
+  if (retryAfter) {
+    console.warn(`${label} 429 ${ip} is over ${LIMIT} requests a minute`);
+    return c.json({ error: "Too many requests. Try again in a minute." }, 429, {
+      "Retry-After": String(retryAfter),
+    });
   }
 
   try {
