@@ -41,7 +41,8 @@ Run `npm test` in `server` and in `web` for the tests.
 - Only ERCOT's real-time 15-minute SPP, for 4 hubs.
 - Up to 31 days per preview and no future dates. Times are in Central Time.
 - The Grid Status free tier allows 1 request per second and 500k rows a month, so a busy moment shows the error state.
-- A range that includes today stays cached until the server restarts, so it misses newer readings. Each server instance has its own cache.
+- On Vercel, prices are cached in Upstash Redis and shared by every instance. A range that ends today or yesterday (CT) is cached for 15 minutes, so it can be up to 15 minutes behind. Older ranges are cached for good.
+- Locally, without `KV_REST_API_URL` and `KV_REST_API_TOKEN`, prices are cached in memory, so a range that includes today misses newer readings until the server restarts.
 - `/api/prices` has no auth or rate limiting.
 - It relies on Grid Status reading bare dates in market time (CT) with `timezone=market`, which its docs don't promise.
 

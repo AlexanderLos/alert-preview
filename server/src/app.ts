@@ -1,5 +1,7 @@
 import { Hono } from "hono";
+import { createCache } from "./cache.js";
 import { gridAPI, GridStatusError } from "./gridapi.js";
+import { todayCT } from "./dates.js";
 
 const LOCATIONS = ["HB_HOUSTON", "HB_NORTH", "HB_SOUTH", "HB_WEST"];
 const MAX_DAYS = 31;
@@ -12,7 +14,7 @@ if (!apiKey) {
 }
 
 const app = new Hono();
-const grid = new gridAPI(apiKey);
+const grid = new gridAPI(apiKey, createCache());
 
 // Fetch
 app.get("/api/prices", async (c) => {
@@ -95,13 +97,6 @@ function isDate(value: string): boolean {
   return (
     !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === value
   );
-}
-
-// en-CA formats dates as YYYY-MM-DD
-function todayCT(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Chicago",
-  }).format(new Date());
 }
 
 export default app;
