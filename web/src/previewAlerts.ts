@@ -14,7 +14,6 @@ export function previewAlerts(
 
     if (reading.spp >= threshold && time >= cooldownEndsAt) {
       alerts.push(reading);
-      // Start a cooldown: no new alert until minMinutesBetween minutes after this one
       cooldownEndsAt = time + minMinutesBetween * 60 * 1000;
     }
   }

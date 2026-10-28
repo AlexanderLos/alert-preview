@@ -1,10 +1,23 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
-// app.ts throws on import without an API key. A blank KV_REST_API_URL keeps
-// the cache in memory even if the Upstash vars are set in your shell.
-vi.stubEnv("GRIDSTATUS_API_KEY", "test-key");
-vi.stubEnv("KV_REST_API_URL", "");
-const { default: app } = await import("./app.js");
+// app.ts reads env vars on import, so new values need a fresh import. A blank
+// KV_REST_API_URL keeps Redis off even if your shell sets the Upstash vars.
+async function importApp(env: Record<string, string> = {}) {
+  vi.resetModules();
+  const vars = { GRIDSTATUS_API_KEY: "test-key", KV_REST_API_URL: "", ...env };
+  for (const [name, value] of Object.entries(vars)) {
+    vi.stubEnv(name, value);
+  }
+  const { default: app } = await import("./app.js");
+  return app;
+}
+
+const app = await importApp();
+
+const upstashVars = {
+  KV_REST_API_URL: "https://redis.test",
+  KV_REST_API_TOKEN: "redis-token",
+};
 
 // One page of Grid Status results with no next page
 function page(data: object[] = []): Response {
@@ -26,6 +39,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 test.each([
@@ -164,6 +178,74 @@ test("turns a Grid Status 429 into a 503 without the key", async () => {
   expect(console.error).toHaveBeenCalledWith(
     expect.stringMatching(
       /^prices HB_HOUSTON 2025-04-01\.\.2025-04-01 failed 503 \(Grid Status 429: Rate limit exceeded\. Try again in 60 seconds\.\) \d+ms$/,
+    ),
+  );
+});
+
+test("turns away an IP over the limit with a 429 and Retry-After", async () => {
+  // 23 seconds before the next minute
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-28T15:00:37Z"));
+  const limitedApp = await importApp(upstashVars);
+  // Upstash counts this as the IP's 31st request this minute
+  vi.mocked(fetch).mockResolvedValue(
+    Response.json([{ result: 31 }, { result: 1 }]),
+  );
+
+  const response = await limitedApp.request(
+    "/api/prices?location=HB_HOUSTON&start=2025-08-01&end=2025-08-01",
+    { headers: { "x-real-ip": "203.0.113.7" } },
+  );
+
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("23");
+  expect(await response.json()).toEqual({
+    error: "Too many requests. Try again in a minute.",
+  });
+  // Only the rate limit reached Upstash, and nothing reached Grid Status
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(console.warn).toHaveBeenCalledWith(
+    "prices HB_HOUSTON 2025-08-01..2025-08-01 429 203.0.113.7 is over 30 requests a minute",
+  );
+});
+
+test("serves prices when Redis is down", async () => {
+  const redisDownApp = await importApp(upstashVars);
+  vi.mocked(fetch).mockImplementation(async (url) => {
+    if (String(url).startsWith("https://redis.test")) {
+      throw new TypeError("fetch failed");
+    }
+    return page();
+  });
+
+  const response = await redisDownApp.request(
+    "/api/prices?location=HB_HOUSTON&start=2025-09-01&end=2025-09-01",
+    { headers: { "x-real-ip": "203.0.113.7" } },
+  );
+
+  expect(response.status).toBe(200);
+  expect(console.error).toHaveBeenCalledWith(
+    "rate limit check failed for 203.0.113.7 (TypeError: fetch failed)",
+  );
+  expect(console.error).toHaveBeenCalledWith(
+    "cache read failed for spp:v1:HB_HOUSTON|2025-09-01|2025-09-01 (TypeError: fetch failed)",
+  );
+});
+
+test("trims the API key, so the log hides the key fetch quotes", async () => {
+  const paddedApp = await importApp({ GRIDSTATUS_API_KEY: "test\nkey\n" });
+  // Real fetch strips the newline at the end, then rejects the one inside
+  // and quotes the key, before sending anything
+  vi.mocked(fetch).mockRestore();
+
+  const response = await paddedApp.request(
+    "/api/prices?location=HB_HOUSTON&start=2025-07-01&end=2025-07-01",
+  );
+
+  expect(response.status).toBe(502);
+  expect(console.error).toHaveBeenCalledWith(
+    expect.stringMatching(
+      /^prices HB_HOUSTON 2025-07-01\.\.2025-07-01 failed 502 \(TypeError: Headers\.append: "<key>" is an invalid header value\.\) \d+ms$/,
     ),
   );
 });

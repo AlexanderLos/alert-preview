@@ -1,5 +1,6 @@
 import { test, expect, vi, afterEach } from "vitest";
 import { createCache } from "./cache.js";
+import { createUpstash } from "./redis.js";
 import type { PriceReading } from "./gridapi.js";
 
 const reading: PriceReading = {
@@ -36,7 +37,7 @@ test("reads a range from Upstash when both env vars are set", async () => {
     Response.json([{ result: btoa(JSON.stringify([reading])) }]),
   );
 
-  const readings = await createCache().get("range-key");
+  const readings = await createCache(createUpstash()).get("range-key");
 
   expect(readings).toEqual([reading]);
   const [url, init] = vi.mocked(fetch).mock.calls[0];
@@ -52,7 +53,7 @@ test("trims whitespace pasted into the env vars", async () => {
     Response.json([{ result: null }]),
   );
 
-  await createCache().get("range-key");
+  await createCache(createUpstash()).get("range-key");
 
   const [url, init] = vi.mocked(fetch).mock.calls[0];
   expect(String(url)).toBe("https://redis.test/pipeline");
@@ -64,7 +65,7 @@ test("stores a range with an expiry only when given one", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
     Response.json([{ result: "OK" }]),
   );
-  const cache = createCache();
+  const cache = createCache(createUpstash());
 
   await cache.set("today-key", [reading], 300);
   await cache.set("past-key", [reading]);
@@ -83,7 +84,7 @@ test("treats a failed read as a miss after one attempt", async () => {
     }),
   );
 
-  const readings = await createCache().get("range-key");
+  const readings = await createCache(createUpstash()).get("range-key");
 
   expect(readings).toBeNull();
   expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -104,7 +105,7 @@ test("keeps the token out of the log and cuts long errors short", async () => {
     .mockResolvedValueOnce(
       Response.json({ error: "OOM command not allowed" }, { status: 400 }),
     );
-  const cache = createCache();
+  const cache = createCache(createUpstash());
 
   await cache.get("range-key");
   await cache.set("range-key", Array(1_000).fill(reading));
@@ -125,7 +126,7 @@ test("gives up on a hung Redis after 2s, timing each request on its own", async 
   vi.spyOn(console, "error").mockImplementation(() => {});
   const fetchMock = vi
     .spyOn(globalThis, "fetch")
-    // Like fetch, settles only when its signal aborts
+    // Like a hung fetch, settles only when its signal aborts
     .mockImplementationOnce(
       (_url, init) =>
         new Promise<Response>((_resolve, reject) => {
@@ -135,9 +136,11 @@ test("gives up on a hung Redis after 2s, timing each request on its own", async 
         }),
     )
     .mockResolvedValueOnce(Response.json([{ result: "OK" }]));
-  const cache = createCache();
+  const cache = createCache(createUpstash());
 
+  const startedAt = Date.now();
   expect(await cache.get("range-key")).toBeNull();
+  expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1_900);
   await cache.set("range-key", [reading]);
 
   expect(console.error).toHaveBeenCalledWith(
@@ -155,14 +158,14 @@ test("keeps ranges in memory when the URL isn't an Upstash REST URL", async () =
   );
   vi.spyOn(console, "error").mockImplementation(() => {});
   const fetchMock = vi.spyOn(globalThis, "fetch");
-  const cache = createCache();
+  const cache = createCache(createUpstash());
 
   await cache.set("range-key", [reading]);
 
   expect(await cache.get("range-key")).toEqual([reading]);
   expect(fetchMock).not.toHaveBeenCalled();
   expect(console.error).toHaveBeenCalledWith(
-    "KV_REST_API_URL isn't an Upstash REST URL, so prices are cached in memory",
+    "KV_REST_API_URL isn't an Upstash REST URL, so prices are cached in memory and nothing is rate limited",
   );
 });
 
@@ -171,13 +174,17 @@ test.each(["KV_REST_API_URL", "KV_REST_API_TOKEN"])(
   async (missing) => {
     useUpstash();
     vi.stubEnv(missing, "");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    const cache = createCache();
+    const cache = createCache(createUpstash());
 
     await cache.set("range-key", [reading]);
 
     expect(await cache.get("range-key")).toEqual([reading]);
     expect(await cache.get("other-key")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      "No Upstash env vars, so prices are cached in memory and nothing is rate limited",
+    );
   },
 );

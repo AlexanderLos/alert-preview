@@ -5,6 +5,9 @@ export type PriceReading = {
   spp: number;
 };
 
+// The server limits how many requests one IP can make a minute
+export class TooManyRequestsError extends Error {}
+
 export async function fetchPrices(
   location: string,
   start: string,
@@ -13,6 +16,9 @@ export async function fetchPrices(
   const response = await fetch(
     `/api/prices?${new URLSearchParams({ location, start, end })}`,
   );
+  if (response.status === 429) {
+    throw new TooManyRequestsError();
+  }
   if (!response.ok) {
     throw new Error(`/api/prices responded ${response.status}`);
   }

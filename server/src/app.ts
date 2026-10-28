@@ -2,21 +2,24 @@ import { Hono } from "hono";
 import { createCache } from "./cache.js";
 import { gridAPI, GridStatusError } from "./gridapi.js";
 import { todayCT } from "./dates.js";
+import { LIMIT, rateLimit } from "./ratelimit.js";
+import { createUpstash } from "./redis.js";
 
 const LOCATIONS = ["HB_HOUSTON", "HB_NORTH", "HB_SOUTH", "HB_WEST"];
 const MAX_DAYS = 31;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// API key comes from server/.env locally and from project env vars on Vercel
-const apiKey = process.env.GRIDSTATUS_API_KEY;
+// fetch trims whitespace off header values, so trim the key the same way, or
+// gridapi.ts can't find it in fetch errors to keep it out of the logs
+const apiKey = process.env.GRIDSTATUS_API_KEY?.trim();
 if (!apiKey) {
   throw new Error("GRIDSTATUS_API_KEY is not set");
 }
 
 const app = new Hono();
-const grid = new gridAPI(apiKey, createCache());
+const upstash = createUpstash();
+const grid = new gridAPI(apiKey, createCache(upstash));
 
-// Fetch
 app.get("/api/prices", async (c) => {
   const startedAt = Date.now();
   const { location, start, end } = c.req.query();
@@ -26,6 +29,16 @@ app.get("/api/prices", async (c) => {
   if (error) {
     console.warn(`${label} 400 ${error}`);
     return c.json({ error }, 400);
+  }
+
+  // Vercel sets x-real-ip to the client's address, replacing any value sent
+  const ip = c.req.header("x-real-ip");
+  const retryAfter = await rateLimit(upstash, ip);
+  if (retryAfter) {
+    console.warn(`${label} 429 ${ip} is over ${LIMIT} requests a minute`);
+    return c.json({ error: "Too many requests. Try again in a minute." }, 429, {
+      "Retry-After": String(retryAfter),
+    });
   }
 
   try {
@@ -88,7 +101,7 @@ function validate(
   }
 }
 
-// Date.parse rolls "2026-02-30" over to March 2, so the day must survive a round trip
+// Date.parse rolls "2026-02-30" over to March 2, so format it back and compare
 function isDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false;

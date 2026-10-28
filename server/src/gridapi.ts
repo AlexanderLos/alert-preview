@@ -130,8 +130,6 @@ function dayAfter(date: string): string {
   return day.toISOString().slice(0, 10);
 }
 
-//Price Types
-
 export type PriceReading = {
   interval_start_local: string;
   interval_start_utc: string;
@@ -143,7 +141,7 @@ export type PriceReading = {
   spp: number;
 };
 
-export type PriceResponse = {
+type PriceResponse = {
   data: PriceReading[];
   meta: { hasNextPage: boolean; cursor?: string | null };
 };

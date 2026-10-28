@@ -43,7 +43,7 @@ Run `npm test` in `server` and in `web` for the tests.
 - The Grid Status free tier allows 1 request per second and 500k rows a month, so a busy moment shows the error state.
 - On Vercel, prices are cached in Upstash Redis and shared by every instance. A range that ends today or yesterday (CT) is cached for 15 minutes, so it can be up to 15 minutes behind. Older ranges are cached for good.
 - Locally, without `KV_REST_API_URL` and `KV_REST_API_TOKEN`, prices are cached in memory, so a range that includes today misses newer readings until the server restarts.
-- `/api/prices` has no auth or rate limiting.
+- `/api/prices` has no auth. On Vercel, each IP can make 30 requests a minute, counted in Upstash Redis; past that it gets a 429 until the next minute. There's no limit locally, where requests carry no client IP, or when Redis is missing or down.
 - It relies on Grid Status reading bare dates in market time (CT) with `timezone=market`, which its docs don't promise.
 
 ## Trade-offs

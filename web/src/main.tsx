@@ -65,7 +65,7 @@ const cssVariablesResolver: CSSVariablesResolver = () => ({
 });
 
 // Past prices never change, so every loaded range stays cached. Failed loads,
-// offline ones included, go straight to the error state and its Try again.
+// offline ones included, go straight to the error state without retrying.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
