@@ -255,7 +255,6 @@ function chartOption(
         markLine: {
           silent: true,
           symbol: "none",
-          animation: false,
           lineStyle: { type: [4, 4], width: 1, color: COLORS.value },
           label: {
             position: "start",

@@ -143,7 +143,7 @@ export type PriceReading = {
   spp: number;
 };
 
-export type PriceResponse = {
+type PriceResponse = {
   data: PriceReading[];
   meta: { hasNextPage: boolean; cursor?: string | null };
 };

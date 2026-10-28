@@ -6,8 +6,8 @@ export const LIMIT = 30;
 const WINDOW_SECONDS = 60;
 
 // Returns how many seconds the IP has to wait, or undefined if it can go
-// ahead. Without Redis or an IP (both missing locally), or when Redis fails,
-// every request goes ahead.
+// ahead. Without Redis or an IP (there's no x-real-ip locally), or when Redis
+// fails, every request goes ahead.
 // ponytail: fixed window, so a burst across the minute boundary can reach
 // 2x LIMIT; switch to a sliding window if that matters.
 export async function rateLimit(
