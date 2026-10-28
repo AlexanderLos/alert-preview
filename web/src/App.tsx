@@ -21,7 +21,7 @@ import { DatePickerInput } from "@mantine/dates";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { AlertHistory } from "./AlertHistory.tsx";
-import { fetchPrices, loadErrorMessage } from "./api.ts";
+import { fetchPrices, TooManyRequestsError } from "./api.ts";
 import { presets, rangeError, todayCT } from "./dates.ts";
 import { formatUsdShort } from "./format.ts";
 import { PriceChart } from "./PriceChart.tsx";
@@ -230,16 +230,22 @@ export default function App() {
               py="sm"
               icon={warningIcon}
             >
-              {loadErrorMessage(error)}{" "}
-              <Anchor
-                component="button"
-                inherit
-                c="blurple.7"
-                underline="always"
-                onClick={() => refetch()}
-              >
-                Try again.
-              </Anchor>
+              {error instanceof TooManyRequestsError ? (
+                "Too many requests. Try again in a minute."
+              ) : (
+                <>
+                  Couldn't load prices from Grid Status.{" "}
+                  <Anchor
+                    component="button"
+                    inherit
+                    c="blurple.7"
+                    underline="always"
+                    onClick={() => refetch()}
+                  >
+                    Try again.
+                  </Anchor>
+                </>
+              )}
             </Alert>
           )}
           {showResults && (

@@ -6,7 +6,7 @@ export type PriceReading = {
 };
 
 // The server limits how many requests one IP can make a minute
-class TooManyRequestsError extends Error {}
+export class TooManyRequestsError extends Error {}
 
 export async function fetchPrices(
   location: string,
@@ -23,10 +23,4 @@ export async function fetchPrices(
     throw new Error(`/api/prices responded ${response.status}`);
   }
   return response.json();
-}
-
-export function loadErrorMessage(error: Error): string {
-  return error instanceof TooManyRequestsError
-    ? "Too many requests. Try again in a minute."
-    : "Couldn't load prices from Grid Status.";
 }
