@@ -27,8 +27,23 @@ function sentParam(call: number, name: string): string | null {
   return new URL(String(url)).searchParams.get(name);
 }
 
+// The expiry gridAPI passes to the cache for a range ending on end
+async function expiryFor(end: string): Promise<number | undefined> {
+  // 10 PM CDT on Oct 27, already Oct 28 in UTC
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-28T03:00:00Z"));
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => page());
+  const cache = memoryCache();
+  const set = vi.spyOn(cache, "set");
+
+  await new gridAPI("test-key", cache).fetchAllPrices({ ...query, end });
+
+  return set.mock.calls[0][2];
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 test("follows the cursor across pages and keeps the readings in order", async () => {
@@ -91,6 +106,17 @@ test("a failed page isn't cached", async () => {
     readings: [{ spp: 1 }, { spp: 2 }],
     pages: 2,
   });
+});
+
+test.each([
+  ["today", "2026-10-27"],
+  ["yesterday", "2026-10-26"],
+])("caches a range ending %s (CT) for 15 minutes", async (_day, end) => {
+  expect(await expiryFor(end)).toBe(15 * 60);
+});
+
+test("caches a range ending 2 days ago for good", async () => {
+  expect(await expiryFor("2026-10-25")).toBeUndefined();
 });
 
 test("asks Grid Status for the hub through the day after the end date", async () => {
