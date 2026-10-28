@@ -130,8 +130,6 @@ function dayAfter(date: string): string {
   return day.toISOString().slice(0, 10);
 }
 
-//Price Types
-
 export type PriceReading = {
   interval_start_local: string;
   interval_start_utc: string;

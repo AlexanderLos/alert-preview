@@ -1,8 +1,7 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
-// app.ts reads its env vars on import, so each set needs a fresh import. It
-// throws without an API key, and a blank KV_REST_API_URL keeps Redis off even
-// if the Upstash vars are set in your shell.
+// app.ts reads env vars on import, so new values need a fresh import. A blank
+// KV_REST_API_URL keeps Redis off even if your shell sets the Upstash vars.
 async function importApp(env: Record<string, string> = {}) {
   vi.resetModules();
   const vars = { GRIDSTATUS_API_KEY: "test-key", KV_REST_API_URL: "", ...env };

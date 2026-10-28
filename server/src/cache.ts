@@ -46,19 +46,18 @@ export function memoryCache(): PriceCache {
   };
 }
 
-// One entry per hub and date range. Bump v1 to ignore entries saved in an older shape.
+// Bump v1 when PriceReading changes, so old cached entries are ignored
 export function cacheKey(query: PriceQuery): string {
   return `spp:v1:${query.location}|${query.start}|${query.end}`;
 }
 
-// Today, and yesterday just after midnight can still be missing prices,
-// so those ranges expire in 15 minutes. Older ranges never change.
-
+// Ranges ending today or yesterday may still be missing their latest prices,
+// so they expire in 15 minutes. Older ranges are final and never expire.
 export function expirySeconds(query: PriceQuery): number | undefined {
   const today = todayCT();
   const yesterday = yesterdayCT();
   if (query.end === today || query.end === yesterday) {
-    return 15 * 60; //Keeping it to 15 minutes since today is still filling in.
+    return 15 * 60;
   }
   return undefined;
 }

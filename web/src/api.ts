@@ -25,7 +25,6 @@ export async function fetchPrices(
   return response.json();
 }
 
-// The error state's sentence for a failed load
 export function loadErrorMessage(error: Error): string {
   return error instanceof TooManyRequestsError
     ? "Too many requests. Try again in a minute."

@@ -21,7 +21,6 @@ function failure(status: number, detail: string): Response {
   return Response.json({ detail }, { status });
 }
 
-// A query parameter Grid Status received on the given fetch call
 function sentParam(call: number, name: string): string | null {
   const [url] = vi.mocked(fetch).mock.calls[call];
   return new URL(String(url)).searchParams.get(name);

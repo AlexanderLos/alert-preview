@@ -23,9 +23,8 @@ export function createUpstash(): Upstash | undefined {
     redis = new Redis({
       url,
       token,
-      // Give up fast: one attempt and 2s per request to Upstash. The signal is
-      // a function so each request gets its own timer; a single signal would
-      // expire 2s after startup and fail every request after that.
+      // Give up fast: one try, 2s. signal is a function so each call gets a new
+      // timer; one signal would expire 2s after startup and abort every call.
       retry: { retries: 0 },
       signal: () => AbortSignal.timeout(2_000),
     });
@@ -39,8 +38,8 @@ export function createUpstash(): Upstash | undefined {
 
   return {
     redis,
-    // Upstash puts the whole command in its message, which for a write is every
-    // reading, and fetch puts a token it can't send in its own
+    // Upstash errors quote the whole command (every reading, on a cache write),
+    // and fetch errors quote a token that has a newline, so shorten and redact
     logError: (failure, error) => {
       const cause = error instanceof Error && error.cause ? error.cause : error;
       const message = String(cause).replaceAll(token, "<token>").slice(0, 200);

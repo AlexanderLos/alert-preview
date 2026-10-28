@@ -1,15 +1,14 @@
 import type { Upstash } from "./redis.js";
 
-// Requests one IP can make a minute. Every hub with every preset is 12, and 30
-// leaves room for date picks and a few people sharing an IP.
+// Requests per IP per minute. Trying all 4 hubs with all 3 date presets is 12,
+// so 30 leaves room for custom dates and a few people sharing an IP.
 export const LIMIT = 30;
+// ponytail: counts reset on each clock minute, so a burst across the boundary
+// can get 2x LIMIT through. Count a rolling 60 seconds if that matters.
 const WINDOW_SECONDS = 60;
 
-// Returns how many seconds the IP has to wait, or undefined if it can go
-// ahead. Without Redis or an IP (there's no x-real-ip locally), or when Redis
-// fails, every request goes ahead.
-// ponytail: fixed window, so a burst across the minute boundary can reach
-// 2x LIMIT; switch to a sliding window if that matters.
+// Returns seconds to wait, or undefined to allow the request. Also allows it
+// when Redis is off or down, or there's no IP (local dev sends no x-real-ip).
 export async function rateLimit(
   upstash: Upstash | undefined,
   ip: string | undefined,

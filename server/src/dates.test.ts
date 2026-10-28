@@ -5,9 +5,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// Spring-forward day is 23 hours long and fall-back day 25, so 24 hours before
-// the first two moments is the wrong date. Late evening in CT is already the
-// next day in UTC.
+// Spring-forward and fall-back days are 23 and 25 hours, so now minus 24 hours
+// is a day off for the first two. Late evening CT is already tomorrow in UTC.
 test.each([
   ["12:30 AM CDT after spring forward", "2026-03-09T05:30:00Z", "2026-03-08"],
   ["11:30 PM CST on fall-back day", "2026-11-02T05:30:00Z", "2026-10-31"],

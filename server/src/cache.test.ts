@@ -126,7 +126,7 @@ test("gives up on a hung Redis after 2s, timing each request on its own", async 
   vi.spyOn(console, "error").mockImplementation(() => {});
   const fetchMock = vi
     .spyOn(globalThis, "fetch")
-    // Like fetch, settles only when its signal aborts
+    // Like a hung fetch, settles only when its signal aborts
     .mockImplementationOnce(
       (_url, init) =>
         new Promise<Response>((_resolve, reject) => {
